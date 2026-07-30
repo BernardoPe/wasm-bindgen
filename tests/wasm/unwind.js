@@ -21,3 +21,20 @@ exports.js_reset_dropped = () => {
 exports.js_trigger_unwind_test = () => {
   wasm.rust_call_throwing_js();
 };
+
+// Call `f` `n` times and return how many threw.
+exports.js_call_catching = (f, n) => {
+  let caught = 0;
+  for (let i = 0; i < n; i++) {
+    try {
+      f();
+    } catch (e) {
+      caught++;
+    }
+  }
+  return caught;
+};
+
+// Same, driving an export directly so the panic escapes through its shim.
+exports.js_call_export_catching = (n) =>
+  exports.js_call_catching(() => wasm.sp_leak_panic(), n);

@@ -19,6 +19,20 @@ extern "C" {
     // Call a Rust function that will call js_throw_error and catch the result
     #[wasm_bindgen(catch)]
     fn js_trigger_unwind_test() -> Result<(), JsValue>;
+
+    // Call `f` `n` times, returning how many threw
+    fn js_call_catching(f: &Closure<dyn FnMut()>, n: u32) -> u32;
+
+    // Call the `sp_leak_panic` export `n` times, swallowing each panic
+    fn js_call_export_catching(n: u32) -> u32;
+}
+
+/// Panics with a non-empty frame, so an abandoned one is measurable.
+#[wasm_bindgen]
+pub fn sp_leak_panic() {
+    let buf = [0u8; 1024];
+    core::hint::black_box(&buf);
+    panic!("expected panic");
 }
 
 // Array
@@ -446,4 +460,70 @@ fn ref_unwind_safe_method_runtime_behavior() {
     assert!(result.is_err());
     assert_eq!(c.n(), 3);
     assert_eq!(c.panicked_at(), 3);
+}
+
+/// Address of a local in this function's own frame. Two calls from the same
+/// caller agree only if `__stack_pointer` is unchanged in between. Taking the
+/// address keeps the buffer on the shadow stack rather than in a wasm local.
+#[inline(never)]
+fn stack_probe() -> usize {
+    let buf = [0u8; 64];
+    core::hint::black_box(buf.as_ptr()) as usize
+}
+
+/// A distinct function with an identical frame, so a before/after pair cannot
+/// be CSE'd into a single call.
+#[inline(never)]
+fn stack_probe_b() -> usize {
+    let buf = [0u8; 64];
+    core::hint::black_box(buf.as_ptr()) as usize
+}
+
+#[inline(never)]
+fn nested_probe() -> usize {
+    let buf = [0u8; 512];
+    core::hint::black_box(&buf);
+    stack_probe()
+}
+
+/// Guards the two tests below: without this, they would report zero drift even
+/// if the optimizer had elided the probe frames.
+#[wasm_bindgen_test]
+fn stack_probe_is_sensitive_to_the_stack_pointer() {
+    assert!(stack_probe().abs_diff(nested_probe()) > 0);
+}
+
+/// Require `__stack_pointer` to come back exactly where it started.
+fn assert_no_sp_drift(f: impl FnOnce()) {
+    let before = stack_probe();
+    f();
+    let after = stack_probe_b();
+    assert_eq!(
+        before,
+        after,
+        "__stack_pointer drifted {} bytes across the escaping panics",
+        before.abs_diff(after)
+    );
+}
+
+/// Each panic escaping to JS abandons the shim's frame without rewinding
+/// `__stack_pointer`, unless the CLI wrapped the export.
+///
+/// Only fails in optimized builds. Debug rewinds the shim frames anyway.
+#[wasm_bindgen_test]
+fn escaping_panics_do_not_leak_shadow_stack() {
+    let cb = Closure::own(|| sp_leak_panic());
+    assert_no_sp_drift(|| assert_eq!(js_call_catching(&cb, 64), 64, "panics did not escape"));
+}
+
+/// Same, through an export shim rather than a closure `invoke` shim.
+#[wasm_bindgen_test]
+fn escaping_panics_from_an_export_do_not_leak_shadow_stack() {
+    assert_no_sp_drift(|| {
+        assert_eq!(
+            js_call_export_catching(64),
+            64,
+            "panics did not escape the export"
+        );
+    });
 }

@@ -1,4 +1,5 @@
 pub mod catch_handler;
+pub mod export_sp_restore;
 pub mod externref;
 pub mod multi_value;
 pub mod threads;
@@ -23,6 +24,20 @@ pub enum ExceptionHandlingVersion {
     /// Modern EH (phase 4): try_table instruction
     Modern,
     ModernButWithPanicAbort,
+}
+
+/// The variants encode both an instruction dialect and a panic strategy. Ask
+/// through these rather than re-deriving either split at the call site.
+impl ExceptionHandlingVersion {
+    /// Whether a Rust panic can unwind out of an export.
+    pub fn unwinds(self) -> bool {
+        matches!(self, Self::Legacy | Self::Modern)
+    }
+
+    /// Whether to emit legacy `try`/`catch_all` rather than `try_table`.
+    pub fn is_legacy(self) -> bool {
+        matches!(self, Self::Legacy)
+    }
 }
 
 /// Detect which exception handling version is used in the module.
