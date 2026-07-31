@@ -1,0 +1,33 @@
+tests/wasm/unwind.js
+  s_97fe65ce1c0059::t_12cc420bca7ba4 24-50
+tests/wasm/unwind.rs
+  s_97fe65ce1c0059::t_656b5d23878883 450-497
+crates/cli/tests/reference/panic-unwind.wat
+  s_e864809dba75cd::t_7eb295acbb3566 17,21
+crates/cli/tests/reference/panic-unwind-legacy.wat
+  s_e864809dba75cd::t_fc990ca82b8d99 17,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9249478f1b6400d91f3032f4d84aa0c97b49d3e8",
+  "prompts": {},
+  "sessions": {
+    "s_97fe65ce1c0059": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_04aea6dc1ffe1L7ZigMpnJhv00",
+        "model": "claude-opus-5"
+      },
+      "human_author": "bpereira <bpereira@cloudflare.com>"
+    },
+    "s_e864809dba75cd": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_04ac6efd9ffel8GWzFfmtS6zwg",
+        "model": "claude-opus-5"
+      },
+      "human_author": "bpereira <bpereira@cloudflare.com>"
+    }
+  }
+}
